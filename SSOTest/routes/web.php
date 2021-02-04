@@ -21,7 +21,8 @@ Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
-Route::get('/login/{provider}', 'OAuthLoginController@redirectToProvider');
-Route::get('/login/{provider}/callback', 'OAuthLoginController@handleProviderCallback');
+Route::get('/login/{provider}', 'Auth\LoginController@redirectToProvider');
+Route::get('/login/{provider}/callback', 'Auth\LoginController@handleProviderCallback');
+
 
 

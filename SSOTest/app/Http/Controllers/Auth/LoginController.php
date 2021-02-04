@@ -3,66 +3,40 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
-
-use Auth;
-use Socialite;
+use Illuminate\Http\Request;
 use App\Models\User;
-use App\Models\IdentityProvider;
+use Socialite;
+use Auth;
 
 class LoginController extends Controller
 {
-    use AuthenticatesUsers;
-
-    protected $redirectTo = '/home';
-
-    public function __construct()
+    public function redirectToProvider($provider)
     {
-        $this->middleware('guest')->except('logout');
+        return Socialite::driver($provider)->redirect();
     }
 
-    public function redirectToProvider($social)
-    {
-        return Socialite::driver($social)->redirect();
-    }
+   
 
     public function handleProviderCallback($provider)
     {
         try {
-            $user = Socialite::driver($provider)->user();
-        } catch (Exception $e) {
-            return redirect('/login');
+            $providerUser = \Socialite::with($provider)->user();
+        } catch(\Exception $e) {
+            return redirect('/login')->with('oauth_error', '予期せぬエラーが発生しました');
         }
 
-        $authUser = $this->findOrCreateUser($user, $provider);
-        Auth::login($authUser, true);
-        return redirect($this->redirectTo);
-    }
+        if ($email = $providerUser->getEmail()) {
+            Auth::login(User::firstOrCreate([
+                'email' => $email
+            ], [
+                'name' => $providerUser->getName()
+            ]));
 
-    public function findOrCreateUser($providerUser, $provider)
-    {
-        $account = IdentityProvider::whereProviderName($provider)
-                    ->whereProviderId($providerUser->getId())
-                    ->first();
-
-        if ($account) {
-            return $account->user;
+            return redirect('/home');
         } else {
-            $user = User::whereEmail($providerUser->getEmail())->first();
-
-            if (!$user) {
-                $user = User::create([
-                    'email' => $providerUser->getEmail(),
-                    'name'  => $providerUser->getName(),
-                ]);
-            }
-
-            $user->IdentityProviders()->create([
-                'provider_id'   => $providerUser->getId(),
-                'provider_name' => $provider,
-            ]);
-
-            return $user;
+            return redirect('/login')->with('oauth_error', 'メールアドレスが取得できませんでした');
         }
     }
+
+    
 }
